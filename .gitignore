@@ -1,0 +1,10 @@
+.env
+user_data/
+**naver_user_data/
+**__pycache__
+log/
+**agent_capture/
+0_insta_login.txt
+brand_list.xlsx
+**brand_logs/
+newfeed_crawl_sessions.txt
