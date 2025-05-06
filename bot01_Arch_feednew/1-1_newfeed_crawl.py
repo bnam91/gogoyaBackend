@@ -20,7 +20,7 @@ github : https://github.com/bnam91/insta_vendor
 
 ====
 
-인스타그램 피드 크롤러 (v7_250204)
+인스타그램 피드 크롤러 (v8_240304)
 
 주요 기능:
 1. 인스타그램 피드 자동 스크롤 및 데이터 수집
@@ -35,7 +35,7 @@ github : https://github.com/bnam91/insta_vendor
    - URL 기반 중복 게시물 체크 기능
 
 3. 날짜 기반 크롤링 제한
-   - 5일 이상 된 게시물 10개 발견 시 자동 중단
+   - 10일 이상 된 게시물 5개 발견 시 자동 중단
    - 시간대 처리 (KST 기준)
 
 4. 브라우저 세션 관리
@@ -59,6 +59,7 @@ github : https://github.com/bnam91/insta_vendor
   * 09_brand (브랜드)
   * 09_item (상품)
   * 09_item_category (상품 카테고리)
+  * 09_item_category_2 (상품 서브카테고리)
   * open_date (오픈예정일)
   * end_date (공구마감일)
   * processed (처리여부)
@@ -82,7 +83,7 @@ github : https://github.com/bnam91/insta_vendor
    - MongoDB에서 중복 검사
 
 2. 수집 중단 기준
-   - 5일 이상 된 게시물 10개 발견 시 자동 중단
+   - 10일 이상 된 게시물 5개 발견 시 자동 중단
    - 10회 연속 새로운 컨텐츠 미발견 시 중단
    - 스크롤 실패 시 최대 10회 재시도 후 중단
 
@@ -101,23 +102,15 @@ github : https://github.com/bnam91/insta_vendor
    - 세션별 수집 현황 로깅
    - 오류 발생 시 5분 후 자동 재시도
 
-3. MongoDB TTL 인덱스 설정
+6. MongoDB TTL 인덱스 설정
    - crawl_date 필드 기준으로 자동 삭제
-   - 기본값: 7일 후 삭제 (7 * 24 * 60 * 60 초)
+   - 기본값: 3일 후 삭제 (3 * 24 * 60 * 60 초)
    - TTL 기간 변경 시:
      * expireAfterSeconds 값 수정
      * 3일 = 3 * 24 * 60 * 60
      * 5일 = 5 * 24 * 60 * 60
      * 10일 = 10 * 24 * 60 * 60
 """
-
-# 코드 작업내용(완료)
-# 시트저장하기
-# 시트 역순으로 입력
-# 시트 게시물링크 기준으로 중복체크
-#v6_250203
-# 날짜 시트에 입력하기
-# api를 통해 피드 분석 후 공구 여부 및 제품 체크하기
 
 
 from selenium import webdriver

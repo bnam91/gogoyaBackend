@@ -2,62 +2,62 @@
 1-3_item_today.py - 인플루언서 공구 아이템 데이터 처리 및 업데이트
 
 입력 데이터:
-1. MongoDB '01_test_newfeed_crawl_data' 컬렉션
+1. MongoDB '01_main_newfeed_crawl_data' 컬렉션
    - 크롤링된 새로운 피드 데이터
    - 공구 아이템 정보 포함
    - 주요 키: author, post_url, crawl_date, 09_brand, 09_item, 09_item_category, processed
 
-2. brand_category.json
+2. MongoDB '08_main_brand_category_data' 컬렉션
    - 브랜드 정보 및 카테고리 매핑 데이터
    - 브랜드 별칭(aliases) 정보 포함
-   - 주요 키: brands{name, category, level, aliases}
+   - 주요 키: name, category, level, aliases
 
-3. MongoDB '02_test_influencer_data' 컬렉션
+3. MongoDB '02_main_influencer_data' 컬렉션
    - 인플루언서 기본 정보
    - 등급 및 카테고리 정보
    - 주요 키: username, clean_name, grade, category
 
-4. MongoDB '04_test_item_today_data' 컬렉션
+4. MongoDB '04_main_item_today_data' 컬렉션
    - 기존 처리된 아이템 데이터
    - NEW 표시 상태 정보
    - 주요 키: NEW, crawl_date, brand_level, brand_category, brand, item, 
              item_category, author, clean_name, grade, category, item_feed_link
 
 출력 데이터:
-1. MongoDB '04_test_item_today_data' 컬렉션 업데이트
+1. MongoDB '04_main_item_today_data' 컬렉션 업데이트
    - 새로운 아이템 추가
-   - NEW 표시 상태 갱신 (2일 이내 데이터)
+   - NEW 표시 상태 갱신 (3일 이내 데이터)
    - 중복 데이터 제거
 
-2. MongoDB '01_test_newfeed_crawl_data' 컬렉션 업데이트
+2. MongoDB '01_main_newfeed_crawl_data' 컬렉션 업데이트
    - 처리 완료된 피드 데이터 상태 변경 (processed: true)
 
 주요 처리 과정:
 1. 미처리 공구 아이템 식별 및 추출
-   - 01_test_newfeed_crawl_data에서 processed가 false인 데이터 추출
+   - 01_main_newfeed_crawl_data에서 processed가 true인 데이터 추출
    - 09_brand 필드가 있는 데이터만 선별
 
 2. 브랜드 정보 매핑 및 카테고리 연동
-   - brand_category.json의 brands 정보로 브랜드명 정규화
+   - 08_main_brand_category_data의 brands 정보로 브랜드명 정규화
    - 브랜드의 level, category 정보 매핑
    - aliases를 통한 다양한 브랜드명 표기 통일
 
 3. 인플루언서 정보 매핑
-   - 02_test_influencer_data의 username으로 인플루언서 정보 매핑
+   - 02_main_influencer_data의 username으로 인플루언서 정보 매핑
    - clean_name, grade, category 정보 연동
 
 4. 중복 데이터 필터링 (작성자/브랜드/날짜 기준)
    - 동일 작성자(author)의 동일 브랜드(brand) 게시물 확인
    - 20일 이내 중복 게시물 필터링
-   - 04_test_item_today_data의 기존 데이터와 비교
+   - 04_main_item_today_data의 기존 데이터와 비교
 
 5. NEW 표시 상태 관리
-   - crawl_date 기준 2일 이내 데이터 'NEW' 표시
+   - crawl_date 기준 3일 이내 데이터 'NEW' 표시
    - 기존 데이터의 NEW 상태 갱신
 
 6. MongoDB 데이터 동기화
-   - 04_test_item_today_data에 새로운 아이템 추가
-   - 01_test_newfeed_crawl_data의 processed 상태 갱신
+   - 04_main_item_today_data에 새로운 아이템 추가
+   - 01_main_newfeed_crawl_data의 processed 상태 갱신
    - 기존 데이터의 NEW 표시 업데이트
 """
 
