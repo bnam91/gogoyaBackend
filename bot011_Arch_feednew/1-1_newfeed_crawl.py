@@ -502,7 +502,7 @@ def main_crawling():
 
 def log_session_status(status, posts_count=None, total_posts=None):
     """세션 상태를 로그 파일에 기록"""
-    log_file = os.path.join(os.path.dirname(__file__), "newfeed_crawl_sessions.txt")
+    log_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), "newfeed_crawl_sessions.txt")
     kst = timezone(timedelta(hours=9))
     timestamp = datetime.now(kst).strftime('%Y-%m-%d %H:%M:%S')
     
@@ -517,7 +517,7 @@ def log_session_status(status, posts_count=None, total_posts=None):
 
 def log_old_post(post_url, post_time, count, days_threshold):
     """오래된 게시물 발견 시 로그 파일에 기록"""
-    log_file = os.path.join(os.path.dirname(__file__), "newfeed_crawl_sessions.txt")
+    log_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), "newfeed_crawl_sessions.txt")
     kst = timezone(timedelta(hours=9))
     timestamp = datetime.now(kst).strftime('%Y-%m-%d %H:%M:%S')
     

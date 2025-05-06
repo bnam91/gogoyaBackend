@@ -1,0 +1,27 @@
+[
+    {
+        "name": "비오맘",
+        "aliases": [
+            "비오맘"
+        ],
+        "category": "",
+        "level": "",
+        "status": "done"
+    },
+    {
+        "name": "디스커버리사전",
+        "aliases": [],
+        "category": "",
+        "level": "",
+        "status": "ready"
+    },
+    {
+        "name": "또또맘",
+        "aliases": [
+            "또또맘"
+        ],
+        "category": "",
+        "level": "",
+        "status": "done"
+    }
+]

@@ -1,0 +1,49 @@
+
+✅ 1. brands 컬렉션 (브랜드 기본 정보)
+{
+  "_id": ObjectId("67c14849444f41169d539717"),
+  "name": "비오맘",
+  "aliases": ["비오맘"],
+  "category": "",
+  "level": "",
+  "status": "done"
+}
+
+
+
+✅ 2. brand_contacts 컬렉션 
+{
+  "_id": ObjectId("contact001"),
+
+  "brand_id": ObjectId("67c14849444f41169d539717"),  // brands._id 참조
+  "brand_name": "비오맘",
+
+  // 연락처 정보
+  "official_website_url": "https://example.com",
+  "domain_type": "네이버",
+  "company_name": "",
+  "customer_service_number": "02-1234-5678",
+  "business_address": "",
+  "email": "",
+
+  // 상태값 (검수 여부, 진행 상황 등)
+  "is_verified": false,                // 사람이 확인했는지
+  "sourcing_status": "미연락"           // 미연락 / 진행중 / 소싱성공 / 실패 등
+}
+
+
+
+✅ 3. contact_logs 컬렉션 (모든 통화 히스토리 기록)
+{
+  "_id": ObjectId("log002"),
+  "brand_id": ObjectId("67c14849444f41169d539717"),
+  "contact_id": ObjectId("contact001"),              // brand_contacts._id 참조
+
+  "call_attempt": 2,
+  "call_date": "2025-04-02T14:05:00Z",
+  "call_duration_sec": 210,
+  "call_status": "연결됨",                           // 연결됨 / 부재중 / 오류 등
+  "need_verification": false,
+  "followup_email": "manager@biomom.co.kr",
+  "memo": "담당자 연결됨. 메일 전달받음."
+}

@@ -1,0 +1,22 @@
+{
+  "2023-09-01": {
+    "clicks": [
+      {"time": "09:15:23", "link_id": "link1"},
+      {"time": "13:42:17", "link_id": "link1"},
+      {"time": "17:30:05", "link_id": "link2"}
+    ]
+  },
+  "2023-09-02": {
+    "clicks": [
+      {"time": "10:25:11", "link_id": "link1"},
+      {"time": "14:18:32", "link_id": "link2"}
+    ]
+  },
+  "2023-09-03": {
+    "clicks": [
+      {"time": "08:45:19", "link_id": "link2"},
+      {"time": "11:33:27", "link_id": "link1"},
+      {"time": "16:20:44", "link_id": "link2"}
+    ]
+  }
+}
