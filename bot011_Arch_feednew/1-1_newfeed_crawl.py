@@ -190,7 +190,9 @@ driver = webdriver.Chrome(options=options)
 
 # MongoDB 연결 설정 (수정된 부분)
 uri = "mongodb+srv://coq3820:JmbIOcaEOrvkpQo1@cluster0.qj1ty.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
-client = MongoClient(uri, server_api=ServerApi('1'))
+client = MongoClient(uri, server_api=ServerApi('1'), 
+                    connectTimeoutMS=60000,  # 연결 타임아웃을 60초로 증가
+                    socketTimeoutMS=60000)   # 소켓 타임아웃도 60초로 증가
 
 try:
     # 연결 확인
@@ -282,15 +284,19 @@ def update_mongodb_data(values, current_date):
         return False
 
 def load_processed_posts():
-    """MongoDB에서 게시물 URL들을 로드"""
+    """MongoDB에서 게시물 URL들을 로드 (최적화된 버전)"""
     processed_posts = set()
     
     try:
-        # MongoDB에서 URL 로드
-        mongo_posts = collection.find({}, {"post_url": 1, "_id": 0})
-        for post in mongo_posts:
-            if "post_url" in post:
-                processed_posts.add(post["post_url"])
+        # MongoDB에서 URL만 선택적으로 로드 (프로젝션 사용)
+        mongo_posts = collection.find(
+            {}, 
+            {"post_url": 1, "_id": 0},
+            batch_size=1000  # 배치 크기 설정
+        )
+        
+        # URL만 추출하여 set에 추가
+        processed_posts = {post["post_url"] for post in mongo_posts if "post_url" in post}
         print(f"🚩MongoDB에서 {len(processed_posts)}개의 게시물 URL을 로드했습니다.")
     except Exception as e:
         print(f"MongoDB 데이터 로드 중 오류 발생: {str(e)}")
