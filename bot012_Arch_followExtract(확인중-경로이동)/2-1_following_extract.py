@@ -69,6 +69,7 @@ import json
 from datetime import datetime
 from pymongo import MongoClient
 from pymongo.server_api import ServerApi
+from bson.objectid import ObjectId
 
 # 상위 디렉토리를 파이썬 경로에 추가
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -255,25 +256,48 @@ def main():
         if success:
             print(f"\n해당 계정의 팔로우 수: {following_count}")
             
-            # vendor_data.json 파일 업데이트
+            # vendor_data.json 파일과 MongoDB 업데이트
             try:
+                # vendor_data.json 파일 업데이트
                 vendor_data_path = os.path.join(os.path.dirname(__file__), 'vendor_data.json')
                 with open(vendor_data_path, 'r', encoding='utf-8') as f:
                     vendor_data = json.load(f)
                 
-                # 현재 URL과 일치하는 데이터 찾기
+                # MongoDB 연결
+                mongo_uri = "mongodb+srv://coq3820:JmbIOcaEOrvkpQo1@cluster0.qj1ty.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+                client = MongoClient(mongo_uri, server_api=ServerApi('1'))
+                db = client['insta09_database']
+                vendor_collection = db['gogoya_vendor_list']
+                
+                today = time.strftime("%Y-%m-%d")
+                
+                # JSON 파일과 MongoDB 동시 업데이트
                 for vendor in vendor_data:
                     if vendor['url'] == profile_url:
-                        vendor['following'] = str(following_count)  # 문자열로 변환
-                        today = time.strftime("%Y-%m-%d")
-                        vendor['update'] = today  # 날짜를 문자열로 저장
+                        # JSON 파일 업데이트
+                        vendor['following'] = str(following_count)
+                        vendor['update'] = today
+                        
+                        # MongoDB 업데이트
+                        vendor_collection.update_one(
+                            {"url": profile_url},
+                            {
+                                "$set": {
+                                    "following": str(following_count),
+                                    "update": today
+                                }
+                            }
+                        )
                 
-                # 변경된 데이터 저장
+                # JSON 파일 저장
                 with open(vendor_data_path, 'w', encoding='utf-8') as f:
                     json.dump(vendor_data, f, ensure_ascii=False, indent=2)
-                print(f"vendor_data.json 파일이 업데이트되었습니다.")
+                
+                print(f"vendor_data.json 파일과 MongoDB가 성공적으로 업데이트되었습니다.")
+                print(f"업데이트된 정보 - following: {following_count}, update: {today}")
+                
             except Exception as e:
-                print(f"vendor_data.json 파일 업데이트 중 오류 발생: {str(e)}")
+                print(f"vendor_data.json 파일 또는 MongoDB 업데이트 중 오류 발생: {str(e)}")
         else:
             print("\n팔로우 수 추출 실패")
 
@@ -416,30 +440,60 @@ def main():
                 new_data = following_list
                 print(f"새로운 from 값({from_user})의 {len(new_data)}개 데이터를 추가합니다.")
 
-            # last_id.txt 파일 경로 설정
-            last_id_path = os.path.join(os.path.dirname(__file__), 'last_id.txt')
-            
-            # 마지막 ID 찾기
+            # MongoDB에서 마지막 ID 읽어오기
             try:
-                with open(last_id_path, 'r') as f:
-                    last_id = int(f.read().strip())
-            except FileNotFoundError:
-                last_id = 0
+                # MongoDB 연결
+                mongo_uri = "mongodb+srv://coq3820:JmbIOcaEOrvkpQo1@cluster0.qj1ty.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+                client = MongoClient(mongo_uri, server_api=ServerApi('1'))
+                db = client['insta09_database']
+                etc_collection = db['gogoya_vendor_etc']
                 
+                # last_id와 last_id_date 가져오기
+                last_id_doc = etc_collection.find_one({"_id": ObjectId("6828d840232fbbc3f03cb495")})
+                if last_id_doc and 'last_id' in last_id_doc:
+                    last_id = last_id_doc['last_id']
+                    last_id_date = last_id_doc.get('last_id_date', time.strftime("%Y-%m-%d"))
+                else:
+                    last_id = 0
+                    last_id_date = time.strftime("%Y-%m-%d")
+                    
+                print(f"MongoDB에서 읽어온 last_id: {last_id}, last_id_date: {last_id_date}")
+                
+            except Exception as e:
+                print(f"MongoDB에서 last_id 읽기 실패: {str(e)}")
+                last_id = 0
+                last_id_date = time.strftime("%Y-%m-%d")
+
             # 새로운 데이터에 ID 부여 및 MongoDB에 데이터 삽입
             for user_info in new_data:
                 last_id += 1
-                user_info['num'] = last_id  # 키 이름 변경
+                user_info['num'] = last_id
                 
-                # MongoDB에 데이터 삽입
                 try:
-                    collection.insert_one(user_info)  # MongoDB에 데이터 삽입
+                    collection.insert_one(user_info)
                     print(f"MongoDB에 데이터 삽입 성공: {user_info['username']}")
                 except Exception as e:
                     print(f"MongoDB에 데이터 삽입 중 오류 발생: {str(e)}")
 
+            # 업데이트된 last_id와 last_id_date를 MongoDB에 저장
+            try:
+                current_date = time.strftime("%Y-%m-%d")
+                etc_collection.update_one(
+                    {"_id": ObjectId("6828d840232fbbc3f03cb495")},
+                    {
+                        "$set": {
+                            "last_id": last_id,
+                            "last_id_date": current_date
+                        }
+                    },
+                    upsert=True
+                )
+                print(f"MongoDB에 last_id({last_id})와 last_id_date({current_date}) 업데이트 완료")
+            except Exception as e:
+                print(f"MongoDB에 last_id와 last_id_date 업데이트 실패: {str(e)}")
+
             # 업데이트된 마지막 ID 저장
-            with open(last_id_path, 'w') as f:
+            with open(os.path.join(os.path.dirname(__file__), 'last_id.txt'), 'w') as f:
                 f.write(str(last_id))
 
             # MongoDB에 데이터 삽입 후 결과 출력
