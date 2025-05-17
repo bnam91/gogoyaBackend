@@ -1,0 +1,40 @@
+insta09_database.02_main_influencer_data
+
+
+_id
+username : "chunytory"
+09_is : "Y"
+add_date : "2025-02-09"
+bio :
+brand :
+category : "패션(50%),뷰티(25%),홈/리빙(25%)"
+clean_name : "츄니토리"
+content_bonus_score : 4
+content_score : 1
+final_score : 102
+follower_score : 29
+followers : "178000"
+following : "195"
+from : "goyamedia_"
+full_name : "츄니토리"
+grade : "S"
+image_url : "https://i.ibb.co/M58JpwtF/1bd3289f82a4.png"
+is_following : ""
+keywords : ""
+name : "츄니토리"
+num : 13
+out_link : "https://l.instagram.com/?u=https%3A%2F%2Flink.inpock.co.kr%2Fchunytory…"
+post_score : 29
+posts : "5597"
+pre_grades : Array (2)
+profile_link : "https://www.instagram.com/chunytory/"
+reels_score : 40
+reels_views(15) : 351692
+
+tags : Array (28)
+contact_info : "https://business.inpock.co.kr/form?partner=chunytory"
+contact_method : "inpk"
+
+
+is_contact_excluded : true > true면 컨택제외
+contact_exclusion_reason : "업체"
