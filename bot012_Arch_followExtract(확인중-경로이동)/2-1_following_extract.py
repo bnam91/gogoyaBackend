@@ -224,9 +224,8 @@ def main():
             # os.remove('temp_profile_url.txt')  # 이 줄 제거
         except FileNotFoundError:
             # 기본 URL 사용
-            # profile_url = "https://www.instagram.com/c_____woo/"
-            profile_url = "https://www.instagram.com/ej_sell_01/"
-            # profile_url = "https://www.instagram.com/bnam91/"
+            profile_url = "https://www.instagram.com/c_____woo/"
+
 
         from_user = profile_url.split('/')[-2]  # username 추출
         driver.get(profile_url)
