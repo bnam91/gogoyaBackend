@@ -12,14 +12,52 @@ try:
     client.admin.command('ping')
     print("MongoDB 연결 성공!")
     
-    # 데이터베이스와 컬렉션 선택
+    # 데이터베이스 선택
     db = client['insta09_database']
-    collection = db['01_main_newfeed_crawl_data']
     
-    # 가장 최근에 추가된 문서 10개 가져오기
-    recent_docs = list(collection.find().sort([('_id', -1)]).limit(10))
+    # 사용 가능한 컬렉션 목록
+    collections = [
+        '01_main_newfeed_crawl_data',
+        '02_main_influencer_data',
+        '03_main_following_extract_data'
+    ]
     
-    print("\n=== 최근 추가된 10개 문서 ===")
+    # 컬렉션 목록 출력
+    print("\n=== 사용 가능한 컬렉션 목록 ===")
+    for idx, coll_name in enumerate(collections, 1):
+        print(f"{idx}. {coll_name}")
+    
+    # 사용자 입력 받기
+    while True:
+        try:
+            choice = int(input("\n컬렉션 번호를 선택하세요: "))
+            if 1 <= choice <= len(collections):
+                selected_collection = collections[choice-1]
+                break
+            else:
+                print(f"1부터 {len(collections)} 사이의 숫자를 입력해주세요.")
+        except ValueError:
+            print("올바른 숫자를 입력해주세요.")
+    
+    # 선택된 컬렉션 사용
+    collection = db[selected_collection]
+    print(f"\n선택된 컬렉션: {selected_collection}")
+    
+    # 사용자로부터 출력할 문서 개수 입력 받기
+    while True:
+        try:
+            doc_count = int(input("\n출력할 문서 개수를 입력하세요: "))
+            if doc_count > 0:
+                break
+            else:
+                print("1 이상의 숫자를 입력해주세요.")
+        except ValueError:
+            print("올바른 숫자를 입력해주세요.")
+    
+    # 입력받은 개수만큼 최근 문서 가져오기
+    recent_docs = list(collection.find().sort([('_id', -1)]).limit(doc_count))
+    
+    print(f"\n=== 최근 추가된 {doc_count}개 문서 ===")
     for i, doc in enumerate(recent_docs, 1):
         print(f"\n{i}번째 문서:")
         # _id 필드는 제외하고 출력
