@@ -1,6 +1,12 @@
 """
 인스타그램 팔로잉 추출기 v1
 
+## 액션
+- temp_profile_url.txt 파일에 팔로잉 추출할 URL주소를 입력해주세요.
+- last_id.txt 파일에 마지막 ID를 확인하세요.
+- vendor_data.json 파일에 크롤링한 데이터가 업데이트 됨
+
+
 주요 기능:
 1. 인스타그램 계정의 팔로잉 목록을 자동으로 크롤링
 2. 3회 반복 실행으로 누락 데이터 최소화
@@ -57,6 +63,10 @@ import json
 from datetime import datetime
 from pymongo import MongoClient
 from pymongo.server_api import ServerApi
+
+# 상위 디렉토리를 파이썬 경로에 추가
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from module.following_extractor import extract_following_count
 
 def clear_chrome_data(user_data_dir, keep_login=True):
     default_dir = os.path.join(user_data_dir, 'Default')
@@ -200,11 +210,13 @@ def main():
 
         # 절대경로에서 상대경로로 변경
         # 0_insta_login.txt 파일에서 프로필 정보 읽기
-        login_file_path = os.path.join(os.path.dirname(__file__), "0_insta_login.txt")
+        login_file_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "0_insta_login.txt")
         with open(login_file_path, 'r', encoding='utf-8') as f:
             profile_name = f.read().strip()
 
-        user_data_dir = os.path.join(os.path.dirname(__file__), "user_data", profile_name)
+        # user_data 경로를 루트 디렉토리 기준으로 수정
+        root_dir = os.path.dirname(os.path.dirname(__file__))
+        user_data_dir = os.path.join(root_dir, "user_data", profile_name)
         options.add_argument(f"user-data-dir={user_data_dir}")
 
         # 캐시와 임시 파일 정리 (로그인 정보 유지)
@@ -218,7 +230,8 @@ def main():
 
         # 프로필 URL 읽기
         try:
-            with open('temp_profile_url.txt', 'r', encoding='utf-8') as f:
+            temp_profile_path = os.path.join(os.path.dirname(__file__), 'temp_profile_url.txt')
+            with open(temp_profile_path, 'r', encoding='utf-8') as f:
                 profile_url = f.read().strip()
             # 임시 파일 삭제하지 않도록 수정
             # os.remove('temp_profile_url.txt')  # 이 줄 제거
@@ -230,6 +243,33 @@ def main():
         from_user = profile_url.split('/')[-2]  # username 추출
         driver.get(profile_url)
         time.sleep(3)
+
+        # 팔로우 수 추출 및 출력
+        following_count, success = extract_following_count(driver)
+        if success:
+            print(f"\n해당 계정의 팔로우 수: {following_count}")
+            
+            # vendor_data.json 파일 업데이트
+            try:
+                vendor_data_path = os.path.join(os.path.dirname(__file__), 'vendor_data.json')
+                with open(vendor_data_path, 'r', encoding='utf-8') as f:
+                    vendor_data = json.load(f)
+                
+                # 현재 URL과 일치하는 데이터 찾기
+                for vendor in vendor_data:
+                    if vendor['url'] == profile_url:
+                        vendor['following'] = str(following_count)  # 문자열로 변환
+                        today = time.strftime("%Y-%m-%d")
+                        vendor['update'] = today  # 날짜를 문자열로 저장
+                
+                # 변경된 데이터 저장
+                with open(vendor_data_path, 'w', encoding='utf-8') as f:
+                    json.dump(vendor_data, f, ensure_ascii=False, indent=2)
+                print(f"vendor_data.json 파일이 업데이트되었습니다.")
+            except Exception as e:
+                print(f"vendor_data.json 파일 업데이트 중 오류 발생: {str(e)}")
+        else:
+            print("\n팔로우 수 추출 실패")
 
         # 팔로잉 버튼 클릭
         try:
@@ -370,9 +410,12 @@ def main():
                 new_data = following_list
                 print(f"새로운 from 값({from_user})의 {len(new_data)}개 데이터를 추가합니다.")
 
+            # last_id.txt 파일 경로 설정
+            last_id_path = os.path.join(os.path.dirname(__file__), 'last_id.txt')
+            
             # 마지막 ID 찾기
             try:
-                with open('last_id.txt', 'r') as f:
+                with open(last_id_path, 'r') as f:
                     last_id = int(f.read().strip())
             except FileNotFoundError:
                 last_id = 0
@@ -390,7 +433,7 @@ def main():
                     print(f"MongoDB에 데이터 삽입 중 오류 발생: {str(e)}")
 
             # 업데이트된 마지막 ID 저장
-            with open('last_id.txt', 'w') as f:
+            with open(last_id_path, 'w') as f:
                 f.write(str(last_id))
 
             # MongoDB에 데이터 삽입 후 결과 출력
@@ -434,7 +477,8 @@ for iteration in range(3):
 
 # 모든 반복이 끝난 후 임시 파일 삭제
 try:
-    os.remove('temp_profile_url.txt')
+    temp_profile_path = os.path.join(os.path.dirname(__file__), 'temp_profile_url.txt')
+    os.remove(temp_profile_path)
 except FileNotFoundError:
     pass
 
