@@ -311,18 +311,17 @@ try:
                         '인플루언서_제품': inf['product_item'],
                         '인플루언서_언급일자': inf['mentioned_date'],
                         '인플루언서_링크': inf['item_feed_link'],
-                        '인플루언서_Reels_Views': inf['reels_views'],
-                        f'{target_username}_제품': target_info['제품'],
-                        f'{target_username}_언급일자': target_info['언급일자'],
-                        f'{target_username}_링크': target_info['링크'],
-                        f'{target_username}_Reels_Views': target_info['Reels Views (15)']
+                        '인플루언서_Reels_Views': inf['reels_views']
                     })
         
         # DataFrame 생성 및 정렬
         df_overlapping = pd.DataFrame(overlapping_data)
         if not df_overlapping.empty:
-            # 인플루언서와 브랜드로 정렬
-            df_overlapping = df_overlapping.sort_values(['인플루언서', '진행_브랜드'])
+            # 인플루언서 username의 중복 횟수를 계산하여 정렬
+            influencer_counts = df_overlapping['인플루언서'].value_counts()
+            df_overlapping['중복_횟수'] = df_overlapping['인플루언서'].map(influencer_counts)
+            df_overlapping = df_overlapping.sort_values(['중복_횟수', '인플루언서', '진행_브랜드'], ascending=[False, True, True])
+            df_overlapping = df_overlapping.drop('중복_횟수', axis=1)  # 정렬 후 중복_횟수 칼럼 제거
             print(f"\n총 {len(set(df_overlapping['인플루언서']))}명의 인플루언서가 {target_username}의 브랜드를 진행했습니다.")
         
         # Excel 파일로 저장
@@ -344,6 +343,37 @@ try:
 
             if not df_overlapping.empty:
                 df_overlapping.to_excel(writer, sheet_name='Sheet2', index=False)
+                worksheet = writer.sheets['Sheet2']
+                
+                # 타겟 유저의 Reels Views 값 가져오기 (숫자가 아닌 경우 0으로 처리)
+                target_reels_views = 0
+                try:
+                    if isinstance(user_reels_views, (int, float)):
+                        target_reels_views = float(user_reels_views)
+                    elif isinstance(user_reels_views, str) and user_reels_views.replace('.', '').isdigit():
+                        target_reels_views = float(user_reels_views)
+                except (ValueError, TypeError):
+                    pass
+
+                # 회색 배경색 스타일 정의
+                from openpyxl.styles import PatternFill
+                grey_fill = PatternFill(start_color='D3D3D3', end_color='D3D3D3', fill_type='solid')
+
+                # 각 행을 순회하면서 Reels Views 비교
+                for row_idx, row in enumerate(worksheet.iter_rows(min_row=2)):  # 헤더 제외
+                    try:
+                        reels_views_cell = row[6]  # G열 (인덱스 6)
+                        if reels_views_cell.value and str(reels_views_cell.value).replace('.', '').replace('K', '000').replace('M', '000000').isdigit():
+                            influencer_views = float(str(reels_views_cell.value).replace('K', '000').replace('M', '000000'))
+                            if influencer_views > target_reels_views:
+                                for cell in row:
+                                    cell.fill = grey_fill
+                    except (ValueError, TypeError):
+                        continue
+
+                # Sheet2 칼럼 너비 설정
+                for column in worksheet.columns:
+                    worksheet.column_dimensions[column[0].column_letter].width = 25
                 print(f"\nSheet2에 {len(df_overlapping)}개의 브랜드-인플루언서 매칭 정보가 저장되었습니다.")
         
         print(f"\nExcel 파일이 생성되었습니다: {excel_filename}")

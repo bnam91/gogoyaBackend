@@ -180,8 +180,12 @@ def crawl_instagram_posts(driver, post_url, weeks, collection):
             post_data['author'] = author_element.text
             
             # 본문 내용 추출
-            content_element = driver.find_element(By.CSS_SELECTOR, "h1._ap3a._aaco._aacu._aacx._aad7._aade")
-            post_data['content'] = content_element.text  # 전체 내용 저장
+            try:
+                content_element = driver.find_element(By.CSS_SELECTOR, "h1._ap3a._aaco._aacu._aacx._aad7._aade")
+                post_data['content'] = content_element.text  # 전체 내용 저장
+            except Exception as e:
+                print(f"\n본문 내용을 찾을 수 없습니다. 빈 내용으로 처리합니다.")
+                post_data['content'] = ""  # 빈 내용으로 설정
             
             # 게시 날짜 추출
             time_element = driver.find_element(By.CSS_SELECTOR, "time._a9ze._a9zf")
@@ -265,7 +269,7 @@ def crawl_instagram_posts(driver, post_url, weeks, collection):
                     driver.execute_script("arguments[0].click();", next_button)
                     
                     # 실제 사람처럼 랜덤한 시간 대기 (정규 분포 사용)
-                    wait_time = abs(random.gauss(3.5, 2))  # 평균 6초, 표준편차 4초
+                    wait_time = abs(random.gauss(2.5, 2))  # 평균 6초, 표준편차 4초
                     # 최소 0.5초, 최대 50초로 제한
                     wait_time = max(0.5, min(wait_time, 20.0))
                     print(f"다음 피드 로딩 대기 중... ({wait_time:.1f}초)")
@@ -286,8 +290,12 @@ def crawl_instagram_posts(driver, post_url, weeks, collection):
                     next_post_data['author'] = author_element.text
                     
                     # 본문 내용 추출
-                    content_element = driver.find_element(By.CSS_SELECTOR, "h1._ap3a._aaco._aacu._aacx._aad7._aade")
-                    next_post_data['content'] = content_element.text  # 전체 내용 저장
+                    try:
+                        content_element = driver.find_element(By.CSS_SELECTOR, "h1._ap3a._aaco._aacu._aacx._aad7._aade")
+                        next_post_data['content'] = content_element.text  # 전체 내용 저장
+                    except Exception as e:
+                        print(f"\n본문 내용을 찾을 수 없습니다. 빈 내용으로 처리합니다.")
+                        next_post_data['content'] = ""  # 빈 내용으로 설정
                     
                     # 게시 날짜 추출
                     time_element = driver.find_element(By.CSS_SELECTOR, "time._a9ze._a9zf")
