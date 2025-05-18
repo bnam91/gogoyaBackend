@@ -267,7 +267,7 @@ def crawl_instagram_posts(driver, post_url, weeks, collection):
                     # 실제 사람처럼 랜덤한 시간 대기 (정규 분포 사용)
                     wait_time = abs(random.gauss(3.5, 2))  # 평균 6초, 표준편차 4초
                     # 최소 0.5초, 최대 50초로 제한
-                    wait_time = max(0.5, min(wait_time, 30.0))
+                    wait_time = max(0.5, min(wait_time, 20.0))
                     print(f"다음 피드 로딩 대기 중... ({wait_time:.1f}초)")
                     time.sleep(wait_time)
                     
@@ -376,6 +376,49 @@ def crawl_instagram_posts(driver, post_url, weeks, collection):
 
     return total_posts_in_period
 
+def check_already_crawled(service, spreadsheet_id, username):
+    """해당 username의 Date 칼럼 확인 및 'crawling' 상태 업데이트"""
+    try:
+        # 전체 데이터 가져오기
+        result = service.spreadsheets().values().get(
+            spreadsheetId=spreadsheet_id,
+            range='A:E'  # A열: Username, B열: Category, E열: Date
+        ).execute()
+        values = result.get('values', [])
+
+        # username이 있는 행 찾기
+        for i, row in enumerate(values):
+            if row and row[0] == username:
+                row_number = i + 1  # 1-based index
+                # Date 칼럼에 값이 있는지 확인 (E열)
+                if len(row) > 4 and row[4].strip():
+                    if row[4].lower() == 'crawling':  # 이미 크롤링 중인 상태
+                        print(f"\n⚠️ {username} 계정은 현재 크롤링 중입니다. 건너뜁니다.")
+                        return True, 'crawling'
+                    else:  # 이미 크롤링 완료된 상태
+                        category = row[1] if len(row) > 1 else "카테고리 정보 없음"
+                        print(f"\n✅ {username} 계정은 이미 {category}에서 {row[4]}에 크롤링되었습니다. 건너뜁니다.")
+                        return True, row[4]
+                else:  # Date 칼럼이 비어있는 경우
+                    # 'crawling' 상태로 업데이트
+                    range_name = f'E{row_number}'
+                    body = {
+                        'values': [['crawling']]
+                    }
+                    service.spreadsheets().values().update(
+                        spreadsheetId=spreadsheet_id,
+                        range=range_name,
+                        valueInputOption='RAW',
+                        body=body
+                    ).execute()
+                    print(f"\n🔄 {username} 계정의 상태를 'crawling'으로 업데이트했습니다.")
+                    return False, None
+    except Exception as e:
+        print(f"\n❌ Date 칼럼 확인 중 오류 발생: {str(e)}")
+        return False, None
+
+    return False, None
+
 def update_crawl_date(service, spreadsheet_id, username, post_count, error_log=None):
     """Google Sheets의 Date 칼럼과 Count 칼럼, Log 칼럼에 크롤링 날짜와 게시물 수, 에러 로그 업데이트"""
     try:
@@ -400,48 +443,31 @@ def update_crawl_date(service, spreadsheet_id, username, post_count, error_log=N
 
             # Date 칼럼(E열), Count 칼럼(F열), Log 칼럼(G열) 업데이트
             range_name = f'E{row_number}:G{row_number}'
-            body = {
-                'values': [[current_date, post_count, error_log if error_log else '']]
-            }
+            
+            # 에러가 있는 경우와 없는 경우 구분
+            if error_log:
+                body = {
+                    'values': [[f"{current_date} (Error)", post_count, error_log]]
+                }
+                print(f"\n❌ {username}의 크롤링 중 에러 발생. 날짜와 에러 로그가 기록되었습니다.")
+            else:
+                body = {
+                    'values': [[current_date, post_count, '']]
+                }
+                print(f"\n✅ {username}의 크롤링이 완료되었습니다. ({post_count}개 게시물)")
+
             service.spreadsheets().values().update(
                 spreadsheetId=spreadsheet_id,
                 range=range_name,
                 valueInputOption='RAW',
                 body=body
             ).execute()
-            print(f"\n{username}의 크롤링 날짜가 {current_date}로, 게시물 수가 {post_count}개로 업데이트되었습니다.")
-            if error_log:
-                print(f"에러 로그가 기록되었습니다: {error_log}")
+
         else:
-            print(f"\n{username}을 스프레드시트에서 찾을 수 없습니다.")
+            print(f"\n❌ {username}을 스프레드시트에서 찾을 수 없습니다.")
 
     except Exception as e:
-        print(f"\n크롤링 날짜와 게시물 수 업데이트 중 오류 발생: {str(e)}")
-
-def check_already_crawled(service, spreadsheet_id, username):
-    """해당 username의 Date 칼럼 확인"""
-    try:
-        # 전체 데이터 가져오기
-        result = service.spreadsheets().values().get(
-            spreadsheetId=spreadsheet_id,
-            range='A:E'  # A열: Username, B열: Category, E열: Date
-        ).execute()
-        values = result.get('values', [])
-
-        # username이 있는 행 찾기
-        for row in values:
-            if row and row[0] == username:
-                # Date 칼럼에 값이 있는지 확인 (E열)
-                if len(row) > 4 and row[4].strip():  # E열(인덱스 4)에 값이 있는지 확인
-                    category = row[1] if len(row) > 1 else "카테고리 정보 없음"
-                    print(f"\n{username} 계정은 이미 {category}에 크롤링되었습니다. 건너뜁니다.")
-                    return True, row[4]  # 이미 크롤링됨, 날짜 반환
-                return False, None  # 크롤링 안됨
-    except Exception as e:
-        print(f"\nDate 칼럼 확인 중 오류 발생: {str(e)}")
-        return False, None
-
-    return False, None
+        print(f"\n❌ 크롤링 날짜와 게시물 수 업데이트 중 오류 발생: {str(e)}")
 
 def update_reels_views(collection_influencer, username, average_views):
     """인플루언서 컬렉션의 reels_views(15) 필드를 업데이트합니다."""
@@ -505,6 +531,121 @@ def take_break(username_count):
         print(f"\n대규모 휴식 시작 (총 {hours}시간 {minutes}분)...")
         show_countdown(break_time, "대규모")
 
+def load_sheet_data(service, spreadsheet_id):
+    """스프레드시트 전체 데이터를 한 번에 로드"""
+    try:
+        result = service.spreadsheets().values().get(
+            spreadsheetId=spreadsheet_id,
+            range='A:G'  # A-G 열 전체 데이터 로드
+        ).execute()
+        return result.get('values', [])
+    except Exception as e:
+        print(f"\n❌ 스프레드시트 로드 중 오류 발생: {str(e)}")
+        return None
+
+def batch_update_sheet(service, spreadsheet_id, updates):
+    """여러 셀을 한 번에 업데이트"""
+    try:
+        body = {
+            'valueInputOption': 'RAW',
+            'data': updates
+        }
+        result = service.spreadsheets().values().batchUpdate(
+            spreadsheetId=spreadsheet_id,
+            body=body
+        ).execute()
+        return result
+    except Exception as e:
+        print(f"\n❌ 일괄 업데이트 중 오류 발생: {str(e)}")
+        return None
+
+def process_next_username(service, spreadsheet_id, usernames):
+    """다음 크롤링할 계정을 찾고 상태를 업데이트"""
+    try:
+        # 스프레드시트 데이터를 한 번에 로드
+        result = service.spreadsheets().values().get(
+            spreadsheetId=spreadsheet_id,
+            range='A:G'  # A-G 열 전체 데이터 로드
+        ).execute()
+        sheet_data = result.get('values', [])
+        
+        if not sheet_data:
+            print("스프레드시트에서 데이터를 찾을 수 없습니다.")
+            return None, None
+
+        # username과 행 번호 매핑
+        username_to_row = {}
+
+        # 헤더 제외하고 데이터 처리
+        for i, row in enumerate(sheet_data[1:], start=2):  # 2부터 시작 (1-based, 헤더 제외)
+            if not row:  # 빈 행 건너뛰기
+                continue
+                
+            username = row[0]
+            if username not in usernames:  # 크롤링 대상 목록에 없는 경우 건너뛰기
+                continue
+                
+            username_to_row[username] = i
+            
+            # Date 칼럼 (E열) 확인
+            date_value = row[4] if len(row) > 4 else ""
+            
+            if not date_value.strip():  # Date 칼럼이 비어있는 경우
+                # 이 계정을 크롤링 대상으로 선택하고 상태 업데이트
+                range_name = f'E{i}'
+                body = {
+                    'values': [['crawling']]
+                }
+                try:
+                    service.spreadsheets().values().update(
+                        spreadsheetId=spreadsheet_id,
+                        range=range_name,
+                        valueInputOption='RAW',
+                        body=body
+                    ).execute()
+                    print(f"\n🔄 {username} 계정 크롤링을 시작합니다.")
+                    return username_to_row, username
+                except Exception as e:
+                    print(f"\n❌ {username} 상태 업데이트 중 오류 발생: {str(e)}")
+                    continue
+            elif date_value.lower() == 'crawling':
+                continue  # 크롤링 중인 계정은 메시지 없이 건너뛰기
+            else:
+                continue  # 이미 크롤링된 계정은 메시지 없이 건너뛰기
+
+        print("\n더 이상 크롤링할 계정이 없습니다.")
+        return username_to_row, None
+
+    except Exception as e:
+        print(f"\n❌ 스프레드시트 처리 중 오류 발생: {str(e)}")
+        return None, None
+
+def update_crawl_result(service, spreadsheet_id, username, username_to_row, post_count, error_log=None):
+    """크롤링 결과 업데이트"""
+    if username not in username_to_row:
+        print(f"\n❌ {username}을 행 매핑에서 찾을 수 없습니다.")
+        return
+
+    row_number = username_to_row[username]
+    kst = timezone(timedelta(hours=9))
+    current_date = datetime.now(kst).strftime('%Y-%m-%d')
+
+    update = {
+        'range': f'E{row_number}:G{row_number}',
+        'values': [[
+            f"{current_date} (Error)" if error_log else current_date,
+            post_count,
+            error_log or ''
+        ]]
+    }
+
+    result = batch_update_sheet(service, spreadsheet_id, [update])
+    if result:
+        if error_log:
+            print(f"\n❌ {username}의 크롤링 중 에러 발생. 날짜와 에러 로그가 기록되었습니다.")
+        else:
+            print(f"\n✅ {username}의 크롤링이 완료되었습니다. ({post_count}개 게시물)")
+
 # 메인 실행 코드
 def main():
     # Google Sheets API 설정
@@ -556,15 +697,15 @@ def main():
         processed_posts = load_processed_posts(collection_feed)
         print("이미 처리된 게시물 URL 로드 완료")
 
-        # 각 사용자명에 대해 크롤링 수행
-        for username in usernames:
-            try:
-                # 이미 크롤링된 계정인지 확인
-                already_crawled, crawl_date = check_already_crawled(service, SPREADSHEET_ID, username)
-                if already_crawled:
-                    print(f"\n{username} 계정은 이미 {crawl_date}에 크롤링되었습니다. 건너뜁니다.")
-                    continue
+        while True:
+            # 다음 크롤링할 계정 찾기
+            username_to_row, next_username = process_next_username(service, SPREADSHEET_ID, usernames)
+            
+            if not username_to_row or not next_username:
+                print("\n크롤링을 종료합니다.")
+                break
 
+            try:
                 # Chrome 옵션 설정
                 options = Options()
                 options.add_argument("--start-maximized")
@@ -581,8 +722,8 @@ def main():
                 # 새로운 Chrome 드라이버 시작
                 driver = webdriver.Chrome(options=options)
 
-                print(f"\n{username} 계정 크롤링을 시작합니다...")
-                profile_url = f"https://www.instagram.com/{username}/"
+                print(f"\n{next_username} 계정 크롤링을 시작합니다...")
+                profile_url = f"https://www.instagram.com/{next_username}/"
                 print(f"\n프로필 URL({profile_url})로 이동합니다...")
                 driver.get(profile_url)
                 
@@ -598,12 +739,12 @@ def main():
                     raise
 
                 # 크롤링 실행 및 게시물 수 받기
-                post_count = crawl_instagram_posts(driver, username, weeks, collection_feed)
+                post_count = crawl_instagram_posts(driver, next_username, weeks, collection_feed)
                 
                 # 릴스 분석 수행
-                print(f"\n{username} 계정의 릴스 분석을 시작합니다...")
+                print(f"\n{next_username} 계정의 릴스 분석을 시작합니다...")
                 reels_analyzer = ReelsAnalyzer(driver)  # 기존 드라이버 재사용
-                reels_result = reels_analyzer.analyze_reels_views(f"https://www.instagram.com/{username}/")
+                reels_result = reels_analyzer.analyze_reels_views(f"https://www.instagram.com/{next_username}/")
                 
                 print(f"\n[릴스 분석 결과]")
                 print(f"평균 조회수: {int(reels_result['average_views']):,}회")
@@ -611,31 +752,24 @@ def main():
                 print(f"계산 방식: {reels_result['calculation_method']}")
                 
                 # 릴스 조회수 업데이트
-                update_reels_views(collection_influencer, username, reels_result['average_views'])
+                update_reels_views(collection_influencer, next_username, reels_result['average_views'])
                 
-                # 크롤링 날짜와 게시물 수 업데이트
-                update_crawl_date(service, SPREADSHEET_ID, username, post_count)
+                # 크롤링 결과 업데이트
+                update_crawl_result(service, SPREADSHEET_ID, next_username, username_to_row, post_count)
                 
                 # 브라우저 종료
-                print(f"\n{username} 계정 크롤링 완료. 브라우저를 종료합니다.")
+                print(f"\n{next_username} 계정 크롤링 완료. 브라우저를 종료합니다.")
                 driver.quit()
                 
-                # 계정 간 크롤링 딜레이
-                wait_time = random.uniform(10, 20)
-                print(f"\n다음 계정으로 이동하기 전 {wait_time:.1f}초 대기...")
-                time.sleep(wait_time)
+                # 휴식 시간 관리
+                take_break(usernames.index(next_username) + 1)
 
             except Exception as e:
                 error_message = f"{datetime.now(timezone(timedelta(hours=9))).strftime('%Y-%m-%d %H:%M:%S')} - {str(e)}"
-                print(f"{username} 계정 크롤링 중 오류 발생: {error_message}")
-                # 에러 발생 시 로그 기록
-                update_crawl_date(service, SPREADSHEET_ID, username, 0, error_message)
+                update_crawl_result(service, SPREADSHEET_ID, next_username, username_to_row, 0, error_message)
                 if 'driver' in locals():
                     driver.quit()
                 continue
-
-            # 휴식 시간 관리
-            take_break(usernames.index(username) + 1)
 
     except Exception as e:
         print(f"크롤링 중 오류 발생: {str(e)}")
