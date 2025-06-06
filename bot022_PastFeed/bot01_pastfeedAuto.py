@@ -325,17 +325,19 @@ def crawl_instagram_posts(driver, post_url, weeks, collection, username):
                             print(f"\n[중복 발견] 다른 author의 게시물이 이미 존재합니다.")
                     else:
                         collection.insert_one(post_data)
-                        print(f"\n[새로운 게시물 저장] URL: {post_url}")
-                        print(f"- Author: {post_data['author']}")
+                        print(f"\n새로운 게시물이 MongoDB에 저장되었습니다: {post_url}")
+                        return True
+
                 except Exception as e:
                     print(f"MongoDB 저장 중 오류 발생: {str(e)}")
+                    return False
             
             # 다음 피드로 이동 (1주일 이내의 모든 피드)
             i = 1
             while True:  # 무한 루프로 변경
-                # 게시물 100개 제한 체크
-                if total_posts_in_period >= 100:
-                    print("\n100개의 게시물을 확인했습니다. 다음 계정으로 넘어갑니다.")
+                # 게시물 120개 제한 체크
+                if total_posts_in_period >= 120:
+                    print("\n120개의 게시물을 확인했습니다. 다음 계정으로 넘어갑니다.")
                     return total_posts_in_period
                     
                 try:
@@ -727,6 +729,11 @@ def process_next_username(service, spreadsheet_id, usernames):
             
             # Date 칼럼 (E열) 확인
             date_value = row[4] if len(row) > 4 else ""
+            
+            # '제외' 상태인 경우 건너뛰기
+            if date_value.strip() == '제외':
+                print(f"\n⏭️ {username} 계정은 제외 목록에 있어 건너뜁니다.")
+                continue
             
             if not date_value.strip():  # Date 칼럼이 비어있는 경우
                 # 이 계정을 크롤링 대상으로 선택하고 상태 업데이트
