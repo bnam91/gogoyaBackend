@@ -114,7 +114,22 @@ options.add_argument("disable-blink-features=AutomationControlled")
 options.add_experimental_option("excludeSwitches", ["enable-logging"])
 
 # 절대경로에서 상대경로로 변경
-user_data_dir = os.path.join(os.path.dirname(__file__), "user_data", "home_goyamedia_feed")
+user_data_dir = os.path.normpath(os.path.join("C:\\", "Users", "darli", "Desktop", "github", "gogoyaBackend", "user_data", "mini_goyamedia_feed_03"))
+
+# user_data 디렉토리 생성
+os.makedirs(user_data_dir, exist_ok=True)
+print(f"사용자 데이터 디렉토리: {user_data_dir}")
+print(f"디렉토리 존재 여부: {os.path.exists(user_data_dir)}")
+
+# Chrome 프로필 초기화를 위한 Default 디렉토리 생성
+default_dir = os.path.join(user_data_dir, 'Default')
+os.makedirs(default_dir, exist_ok=True)
+print(f"Default 디렉토리 생성 완료: {default_dir}")
+
+# Chrome 옵션 설정 전에 경로가 올바른지 한번 더 확인
+if not os.path.exists(user_data_dir):
+    raise Exception(f"Chrome 사용자 데이터 디렉토리를 생성할 수 없습니다: {user_data_dir}")
+
 options.add_argument(f"user-data-dir={user_data_dir}")
 
 # 캐시와 임시 파일 정리 (로그인 정보 유지)

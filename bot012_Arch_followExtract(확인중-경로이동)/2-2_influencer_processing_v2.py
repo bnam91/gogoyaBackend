@@ -119,11 +119,16 @@ options.add_experimental_option("excludeSwitches", ["enable-logging"])
 
 # 절대경로에서 상대경로로 변경
 # 0_insta_login.txt 파일에서 프로필 정보 읽기
-login_file_path = os.path.join(os.path.dirname(__file__), "0_insta_login.txt")
+login_file_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "0_insta_login.txt")
 with open(login_file_path, 'r', encoding='utf-8') as f:
     profile_name = f.read().strip()
 
-user_data_dir = os.path.join(os.path.dirname(__file__), "user_data", profile_name)
+# user_data 디렉토리 경로 설정 및 생성
+user_data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "user_data", profile_name)
+os.makedirs(user_data_dir, exist_ok=True)
+print(f"사용자 데이터 디렉토리: {user_data_dir}")
+print(f"디렉토리 존재 여부: {os.path.exists(user_data_dir)}")
+
 options.add_argument(f"user-data-dir={user_data_dir}")
 
 # 캐시와 임시 파일 정리 (로그인 정보 유지)

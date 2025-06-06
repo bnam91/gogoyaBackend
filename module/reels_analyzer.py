@@ -73,7 +73,7 @@ class ReelsAnalyzer:
                     break
                     
                 self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-                time.sleep(2)
+                time.sleep(5)
             
             # 릴스 조회수 수집
             view_elements = self.driver.find_elements(By.CSS_SELECTOR, "._aajy span.html-span")
