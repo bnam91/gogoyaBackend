@@ -1,3 +1,6 @@
+#https://docs.google.com/spreadsheets/d/1RdnS9IsC1TbTi356J5W-Pb66oaJ7xUhVZr-pTlJTwxQ/edit?gid=0#gid=0
+
+
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 import time
@@ -658,13 +661,13 @@ def take_break(username_count):
         print(f"\n중간 휴식 시작 (총 {break_time//60}분 {break_time%60}초)...")
         show_countdown(break_time, "중간")
 
-    # 대규모 휴식 (80-100개 username마다)
-    if username_count % random.randint(80, 100) == 0:
-        break_time = random.randint(1800, 7200)  # 30분-2시간
-        hours = break_time // 3600
-        minutes = (break_time % 3600) // 60
-        print(f"\n대규모 휴식 시작 (총 {hours}시간 {minutes}분)...")
-        show_countdown(break_time, "대규모")
+    # # 대규모 휴식 (80-100개 username마다)
+    # if username_count % random.randint(80, 100) == 0:
+    #     break_time = random.randint(1800, 7200)  # 30분-2시간
+    #     hours = break_time // 3600
+    #     minutes = (break_time % 3600) // 60
+    #     print(f"\n대규모 휴식 시작 (총 {hours}시간 {minutes}분)...")
+    #     show_countdown(break_time, "대규모")
 
 def load_sheet_data(service, spreadsheet_id):
     """스프레드시트 전체 데이터를 한 번에 로드"""
