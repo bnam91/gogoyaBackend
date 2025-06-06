@@ -326,7 +326,7 @@ def crawl_instagram_posts(driver, post_url, weeks, collection, username):
                     else:
                         collection.insert_one(post_data)
                         print(f"\n새로운 게시물이 MongoDB에 저장되었습니다: {post_url}")
-                        return True
+                        return total_posts_in_period
 
                 except Exception as e:
                     print(f"MongoDB 저장 중 오류 발생: {str(e)}")
@@ -383,7 +383,7 @@ def crawl_instagram_posts(driver, post_url, weeks, collection, username):
                     
                     # 작성자 ID 추출
                     author_element = driver.find_element(By.CSS_SELECTOR, "a[role='link'][tabindex='0']")
-                    next_post_data['author'] = author_element.text
+                    next_post_data['author'] = author_element.text.strip() or username  # author가 비어있으면 username 사용
                     
                     # 본문 내용 추출
                     try:
@@ -442,6 +442,7 @@ def crawl_instagram_posts(driver, post_url, weeks, collection, username):
                                         collection.insert_one(next_post_data)
                                         print(f"\n[새로운 게시물 저장] URL: {next_post_data['post_url']}")
                                         print(f"- Author: {next_post_data['author']}")
+                                        return total_posts_in_period
                             except Exception as e:
                                 print(f"MongoDB 저장 중 오류 발생: {str(e)}")
                         else:
