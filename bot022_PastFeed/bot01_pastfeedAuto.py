@@ -326,11 +326,9 @@ def crawl_instagram_posts(driver, post_url, weeks, collection, username):
                     else:
                         collection.insert_one(post_data)
                         print(f"\n새로운 게시물이 MongoDB에 저장되었습니다: {post_url}")
-                        return total_posts_in_period
 
                 except Exception as e:
                     print(f"MongoDB 저장 중 오류 발생: {str(e)}")
-                    return False
             
             # 다음 피드로 이동 (1주일 이내의 모든 피드)
             i = 1
@@ -442,7 +440,6 @@ def crawl_instagram_posts(driver, post_url, weeks, collection, username):
                                         collection.insert_one(next_post_data)
                                         print(f"\n[새로운 게시물 저장] URL: {next_post_data['post_url']}")
                                         print(f"- Author: {next_post_data['author']}")
-                                        return total_posts_in_period
                             except Exception as e:
                                 print(f"MongoDB 저장 중 오류 발생: {str(e)}")
                         else:
@@ -523,7 +520,7 @@ def check_already_crawled(service, spreadsheet_id, username):
         # 전체 데이터 가져오기
         result = service.spreadsheets().values().get(
             spreadsheetId=spreadsheet_id,
-            range='A:E'  # A열: Username, B열: Category, E열: Date
+            range='시트1(홈리빙30이상/4천이상)!A:E'  # 정확한 시트 이름 지정
         ).execute()
         values = result.get('values', [])
 
@@ -566,7 +563,7 @@ def update_crawl_date(service, spreadsheet_id, username, post_count, error_log=N
         # 전체 데이터 가져오기
         result = service.spreadsheets().values().get(
             spreadsheetId=spreadsheet_id,
-            range='A:G'  # A열: Username, B열: Category, E열: Date, F열: Count, G열: Log
+            range='시트1(홈리빙30이상/4천이상)!A:G'  # 정확한 시트 이름 지정
         ).execute()
         values = result.get('values', [])
 
@@ -677,7 +674,7 @@ def load_sheet_data(service, spreadsheet_id):
     try:
         result = service.spreadsheets().values().get(
             spreadsheetId=spreadsheet_id,
-            range='A:G'  # A-G 열 전체 데이터 로드
+            range='시트1(홈리빙30이상/4천이상)!A:G'  # 정확한 시트 이름 지정
         ).execute()
         return result.get('values', [])
     except Exception as e:
@@ -706,14 +703,14 @@ def process_next_username(service, spreadsheet_id, usernames):
         # 스프레드시트 데이터를 한 번에 로드
         result = service.spreadsheets().values().get(
             spreadsheetId=spreadsheet_id,
-            range='A:G'  # A-G 열 전체 데이터 로드
+            range='시트1(홈리빙30이상/4천이상)!A:G'  # 정확한 시트 이름 지정
         ).execute()
         sheet_data = result.get('values', [])
         
         if not sheet_data:
             print("스프레드시트에서 데이터를 찾을 수 없습니다.")
-            return None, None
-
+            return None, None 
+        
         # username과 행 번호 매핑
         username_to_row = {}
 
@@ -796,7 +793,7 @@ def update_crawl_result(service, spreadsheet_id, username, username_to_row, post
 def main():
     # Google Sheets API 설정
     SPREADSHEET_ID = '1RdnS9IsC1TbTi356J5W-Pb66oaJ7xUhVZr-pTlJTwxQ'
-    RANGE_NAME = 'A:A'  # Username 필드가 있는 열 (Sheet 이름 제거)
+    RANGE_NAME = '시트1(홈리빙30이상/4천이상)!A:A'  # 정확한 시트 이름 지정
 
     # Google Sheets API 인증 및 서비스 객체 생성
     creds = get_credentials()
