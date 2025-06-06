@@ -22,8 +22,17 @@ from module.reels_analyzer import ReelsAnalyzer
 
 def clean_url(url):
     """URL에서 쿼리 파라미터를 제거하는 함수"""
+    print(f"\n[URL 정규화 시작] 원본 URL: {url}")
     parsed = urlparse(url)
+    print(f"URL 파싱 결과:")
+    print(f"- scheme: {parsed.scheme}")
+    print(f"- netloc: {parsed.netloc}")
+    print(f"- path: {parsed.path}")
+    print(f"- query: {parsed.query}")
+    print(f"- fragment: {parsed.fragment}")
+    
     clean = urlunsplit((parsed.scheme, parsed.netloc, parsed.path, '', ''))
+    print(f"[URL 정규화 완료] 정규화된 URL: {clean}")
     return clean
 
 def load_processed_posts(collection):
@@ -69,6 +78,21 @@ def connect_mongodb():
         collection_feed.create_index("post_url", unique=True)
         print("post_url에 Unique Index가 생성되었습니다.")
 
+        # TTL 인덱스 생성 (자동 삭제 설정)
+        try:
+            # 기존 인덱스 삭제
+            collection_feed.drop_index("crawl_date_1")
+            print("기존 TTL 인덱스가 삭제되었습니다.")
+        except Exception as e:
+            print(f"기존 인덱스 삭제 중 오류 발생 (무시됨): {e}")
+        
+        # 새로운 TTL 인덱스 생성 (180일)
+        collection_feed.create_index(
+            "crawl_date", 
+            expireAfterSeconds=180 * 24 * 60 * 60  # 180일
+        )
+        print("새로운 TTL Index가 생성되었습니다.")
+
         return collection_feed, collection_influencer
     except Exception as e:
         print(f"MongoDB 연결 또는 인덱스 생성 실패: {e}")
@@ -77,12 +101,31 @@ def connect_mongodb():
 def update_mongodb_data(values, collection):
     """MongoDB에 데이터 저장"""
     try:
+        print(f"\n[MongoDB 저장 시작] 원본 values[3]: {values[3]}")
         post_url = clean_url(values[3])  # URL 파라미터 제거
+        print(f"[MongoDB 저장] 정규화된 URL: {post_url}")
         
-        # 중복 체크
+        # URL로만 먼저 검색
         existing_post = collection.find_one({"post_url": post_url})
         if existing_post:
-            print(f"\n이미 존재하는 게시물입니다: {post_url}")
+            print(f"\n[게시물 확인] URL: {post_url}")
+            print(f"- 기존 author: {existing_post.get('author') or '(누락)'}")
+            print(f"- 새로운 author: {values[1]}")
+            
+            # author가 비어있거나 빈 문자열인 경우 업데이트
+            existing_author = existing_post.get("author", "")
+            if (not existing_author or existing_author.strip() == "") and values[1]:
+                print(f"\n[Author 정보 업데이트] 기존 게시물의 author가 누락되어 있어 업데이트합니다.")
+                
+                collection.update_one(
+                    {"post_url": post_url},
+                    {"$set": {"author": values[1]}}
+                )
+                print("✅ Author 정보가 성공적으로 업데이트되었습니다.")
+            elif existing_author == values[1]:
+                print(f"\n[중복 발견] 동일한 author의 게시물이 이미 존재합니다.")
+            else:
+                print(f"\n[중복 발견] 다른 author의 게시물이 이미 존재합니다.")
             return True
 
         # MongoDB 데이터 구성
@@ -144,7 +187,7 @@ def is_within_period(date_str, weeks):
         print(f"날짜 변환 중 오류 발생: {str(e)}")
         return False
 
-def crawl_instagram_posts(driver, post_url, weeks, collection):
+def crawl_instagram_posts(driver, post_url, weeks, collection, username):
     try:
         # 게시물 카운터 초기화 (기간 내 모든 게시물 카운트)
         total_posts_in_period = 0
@@ -175,9 +218,39 @@ def crawl_instagram_posts(driver, post_url, weeks, collection):
             # 게시물 정보 추출
             post_data = {}
             
-            # 작성자 ID 추출
-            author_element = driver.find_element(By.CSS_SELECTOR, "a[role='link'][tabindex='0']")
-            post_data['author'] = author_element.text
+            # 작성자 ID 추출 (여러 선택자 시도)
+            try:
+                print("\n[작성자 정보 추출 시도]")
+                # 여러 가능한 선택자 시도
+                selectors = [
+                    "a[role='link'][tabindex='0']",  # 기존 선택자
+                    "header a[role='link']",         # 헤더 내 링크
+                    "div._a9zr a[role='link']",      # 게시물 헤더 내 링크
+                    "div._a9zr h2._a9zc"            # 게시물 헤더 내 텍스트
+                ]
+                
+                author_found = False
+                for selector in selectors:
+                    try:
+                        print(f"선택자 시도: {selector}")
+                        author_element = driver.find_element(By.CSS_SELECTOR, selector)
+                        if author_element.text.strip():
+                            post_data['author'] = author_element.text.strip()
+                            print(f"작성자 정보 추출 성공: {post_data['author']}")
+                            author_found = True
+                            break
+                    except Exception as e:
+                        print(f"선택자 {selector} 실패: {str(e)}")
+                        continue
+                
+                if not author_found:
+                    print("경고: 작성자 정보를 찾을 수 없습니다. username을 사용합니다.")
+                    post_data['author'] = username  # username을 author로 사용
+                
+            except Exception as e:
+                print(f"작성자 정보 추출 중 오류 발생: {str(e)}")
+                print("username을 author로 사용합니다.")
+                post_data['author'] = username  # username을 author로 사용
             
             # 본문 내용 추출
             try:
@@ -229,10 +302,28 @@ def crawl_instagram_posts(driver, post_url, weeks, collection):
                     # post_url로 중복 체크
                     existing_post = collection.find_one({"post_url": post_url})
                     if existing_post:
-                        print(f"\n이미 존재하는 게시물입니다: {post_url}")
+                        print(f"\n[게시물 확인] URL: {post_url}")
+                        print(f"- 기존 author: {existing_post.get('author') or '(누락)'}")
+                        print(f"- 새로운 author: {post_data['author']}")
+                        
+                        # author가 비어있거나 빈 문자열인 경우 업데이트
+                        existing_author = existing_post.get("author", "")
+                        if (not existing_author or existing_author.strip() == "") and post_data['author']:
+                            print(f"\n[Author 정보 업데이트] 기존 게시물의 author가 누락되어 있어 업데이트합니다.")
+                            
+                            collection.update_one(
+                                {"post_url": post_url},
+                                {"$set": {"author": post_data['author']}}
+                            )
+                            print("✅ Author 정보가 성공적으로 업데이트되었습니다.")
+                        elif existing_author == post_data['author']:
+                            print(f"\n[중복 발견] 동일한 author의 게시물이 이미 존재합니다.")
+                        else:
+                            print(f"\n[중복 발견] 다른 author의 게시물이 이미 존재합니다.")
                     else:
                         collection.insert_one(post_data)
-                        print(f"\n첫 번째 피드 정보가 MongoDB에 저장되었습니다.")
+                        print(f"\n[새로운 게시물 저장] URL: {post_url}")
+                        print(f"- Author: {post_data['author']}")
                 except Exception as e:
                     print(f"MongoDB 저장 중 오류 발생: {str(e)}")
             
@@ -324,10 +415,28 @@ def crawl_instagram_posts(driver, post_url, weeks, collection):
                                 if collection is not None:
                                     existing_post = collection.find_one({"post_url": next_post_data['post_url']})
                                     if existing_post:
-                                        print(f"\n이미 존재하는 게시물입니다: {next_post_data['post_url']}")
+                                        print(f"\n[게시물 확인] URL: {next_post_data['post_url']}")
+                                        print(f"- 기존 author: {existing_post.get('author') or '(누락)'}")
+                                        print(f"- 새로운 author: {next_post_data['author']}")
+                                        
+                                        # author가 비어있거나 빈 문자열인 경우 업데이트
+                                        existing_author = existing_post.get("author", "")
+                                        if (not existing_author or existing_author.strip() == "") and next_post_data['author']:
+                                            print(f"\n[Author 정보 업데이트] 기존 게시물의 author가 누락되어 있어 업데이트합니다.")
+                                            
+                                            collection.update_one(
+                                                {"post_url": next_post_data['post_url']},
+                                                {"$set": {"author": next_post_data['author']}}
+                                            )
+                                            print("✅ Author 정보가 성공적으로 업데이트되었습니다.")
+                                        elif existing_author == next_post_data['author']:
+                                            print(f"\n[중복 발견] 동일한 author의 게시물이 이미 존재합니다.")
+                                        else:
+                                            print(f"\n[중복 발견] 다른 author의 게시물이 이미 존재합니다.")
                                     else:
                                         collection.insert_one(next_post_data)
-                                        print(f"기간 내 게시물이라 MongoDB에 저장했습니다: {next_post_data['post_url']}")
+                                        print(f"\n[새로운 게시물 저장] URL: {next_post_data['post_url']}")
+                                        print(f"- Author: {next_post_data['author']}")
                             except Exception as e:
                                 print(f"MongoDB 저장 중 오류 발생: {str(e)}")
                         else:
@@ -357,10 +466,28 @@ def crawl_instagram_posts(driver, post_url, weeks, collection):
                             if collection is not None:
                                 existing_post = collection.find_one({"post_url": next_post_data['post_url']})
                                 if existing_post:
-                                    print(f"\n이미 존재하는 게시물입니다: {next_post_data['post_url']}")
+                                    print(f"\n[게시물 확인] URL: {next_post_data['post_url']}")
+                                    print(f"- 기존 author: {existing_post.get('author') or '(누락)'}")
+                                    print(f"- 새로운 author: {next_post_data['author']}")
+                                    
+                                    # author가 비어있거나 빈 문자열인 경우 업데이트
+                                    existing_author = existing_post.get("author", "")
+                                    if (not existing_author or existing_author.strip() == "") and next_post_data['author']:
+                                        print(f"\n[Author 정보 업데이트] 기존 게시물의 author가 누락되어 있어 업데이트합니다.")
+                                        
+                                        collection.update_one(
+                                            {"post_url": next_post_data['post_url']},
+                                            {"$set": {"author": next_post_data['author']}}
+                                        )
+                                        print("✅ Author 정보가 성공적으로 업데이트되었습니다.")
+                                    elif existing_author == next_post_data['author']:
+                                        print(f"\n[중복 발견] 동일한 author의 게시물이 이미 존재합니다.")
+                                    else:
+                                        print(f"\n[중복 발견] 다른 author의 게시물이 이미 존재합니다.")
                                 else:
                                     collection.insert_one(next_post_data)
-                                    print(f"MongoDB에 저장했습니다: {next_post_data['post_url']}")
+                                    print(f"\n[새로운 게시물 저장] URL: {next_post_data['post_url']}")
+                                    print(f"- Author: {next_post_data['author']}")
                         except Exception as e:
                             print(f"MongoDB 저장 중 오류 발생: {str(e)}")
                     
@@ -747,7 +874,7 @@ def main():
                     raise
 
                 # 크롤링 실행 및 게시물 수 받기
-                post_count = crawl_instagram_posts(driver, next_username, weeks, collection_feed)
+                post_count = crawl_instagram_posts(driver, next_username, weeks, collection_feed, next_username)
                 
                 # 릴스 분석 수행
                 print(f"\n{next_username} 계정의 릴스 분석을 시작합니다...")

@@ -1,6 +1,13 @@
 # streamlit run 0-0_streamlit_gui.py
+# cd "C:\Users\신현빈\Desktop\github\gogoyaBackend\bot010_Arch_UI(확인중)"; streamlit run 0-0_streamlit_gui.py
 
 import streamlit as st
+import sys
+import os
+
+# 상위 디렉토리를 Python 경로에 추가
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from pymongo import MongoClient
 from pymongo.server_api import ServerApi
 import pandas as pd
