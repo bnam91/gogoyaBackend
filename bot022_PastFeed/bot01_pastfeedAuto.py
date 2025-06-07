@@ -1,5 +1,7 @@
 #https://docs.google.com/spreadsheets/d/1RdnS9IsC1TbTi356J5W-Pb66oaJ7xUhVZr-pTlJTwxQ/edit?gid=0#gid=0
 
+# 시트명 변수 정의
+SHEET_NAME = '시트2(홈리빙30이상/루키)'
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -520,7 +522,7 @@ def check_already_crawled(service, spreadsheet_id, username):
         # 전체 데이터 가져오기
         result = service.spreadsheets().values().get(
             spreadsheetId=spreadsheet_id,
-            range='시트1(홈리빙30이상/4천이상)!A:E'  # 정확한 시트 이름 지정
+            range=f'{SHEET_NAME}!A:E'  # 시트명 변수 사용
         ).execute()
         values = result.get('values', [])
 
@@ -539,7 +541,7 @@ def check_already_crawled(service, spreadsheet_id, username):
                         return True, row[4]
                 else:  # Date 칼럼이 비어있는 경우
                     # 'crawling' 상태로 업데이트
-                    range_name = f'E{row_number}'
+                    range_name = f'{SHEET_NAME}!E{row_number}'  # 시트명 변수 사용
                     body = {
                         'values': [['crawling']]
                     }
@@ -563,7 +565,7 @@ def update_crawl_date(service, spreadsheet_id, username, post_count, error_log=N
         # 전체 데이터 가져오기
         result = service.spreadsheets().values().get(
             spreadsheetId=spreadsheet_id,
-            range='시트1(홈리빙30이상/4천이상)!A:G'  # 정확한 시트 이름 지정
+            range=f'{SHEET_NAME}!A:G'  # 시트명 변수 사용
         ).execute()
         values = result.get('values', [])
 
@@ -580,7 +582,7 @@ def update_crawl_date(service, spreadsheet_id, username, post_count, error_log=N
             current_date = datetime.now(kst).strftime('%Y-%m-%d')
 
             # Date 칼럼(E열), Count 칼럼(F열), Log 칼럼(G열) 업데이트
-            range_name = f'E{row_number}:G{row_number}'
+            range_name = f'{SHEET_NAME}!E{row_number}:G{row_number}'  # 시트명 변수 사용
             
             # 에러가 있는 경우와 없는 경우 구분
             if error_log:
@@ -674,7 +676,7 @@ def load_sheet_data(service, spreadsheet_id):
     try:
         result = service.spreadsheets().values().get(
             spreadsheetId=spreadsheet_id,
-            range='시트1(홈리빙30이상/4천이상)!A:G'  # 정확한 시트 이름 지정
+            range=f'{SHEET_NAME}!A:G'  # 시트명 변수 사용
         ).execute()
         return result.get('values', [])
     except Exception as e:
@@ -703,7 +705,7 @@ def process_next_username(service, spreadsheet_id, usernames):
         # 스프레드시트 데이터를 한 번에 로드
         result = service.spreadsheets().values().get(
             spreadsheetId=spreadsheet_id,
-            range='시트1(홈리빙30이상/4천이상)!A:G'  # 정확한 시트 이름 지정
+            range=f'{SHEET_NAME}!A:G'  # 시트명 변수 사용
         ).execute()
         sheet_data = result.get('values', [])
         
@@ -735,7 +737,7 @@ def process_next_username(service, spreadsheet_id, usernames):
             
             if not date_value.strip():  # Date 칼럼이 비어있는 경우
                 # 이 계정을 크롤링 대상으로 선택하고 상태 업데이트
-                range_name = f'E{i}'
+                range_name = f'{SHEET_NAME}!E{i}'  # 시트명 변수 사용
                 body = {
                     'values': [['crawling']]
                 }
@@ -774,7 +776,7 @@ def update_crawl_result(service, spreadsheet_id, username, username_to_row, post
     current_date = datetime.now(kst).strftime('%Y-%m-%d')
 
     update = {
-        'range': f'E{row_number}:G{row_number}',
+        'range': f'{SHEET_NAME}!E{row_number}:G{row_number}',  # 시트명 변수 사용
         'values': [[
             f"{current_date} (Error)" if error_log else current_date,
             post_count,
@@ -793,7 +795,7 @@ def update_crawl_result(service, spreadsheet_id, username, username_to_row, post
 def main():
     # Google Sheets API 설정
     SPREADSHEET_ID = '1RdnS9IsC1TbTi356J5W-Pb66oaJ7xUhVZr-pTlJTwxQ'
-    RANGE_NAME = '시트1(홈리빙30이상/4천이상)!A:A'  # 정확한 시트 이름 지정
+    RANGE_NAME = f'{SHEET_NAME}!A:A'  # 시트명 변수 사용
 
     # Google Sheets API 인증 및 서비스 객체 생성
     creds = get_credentials()
