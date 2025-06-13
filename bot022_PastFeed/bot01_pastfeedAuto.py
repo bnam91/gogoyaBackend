@@ -1,7 +1,9 @@
 #https://docs.google.com/spreadsheets/d/1RdnS9IsC1TbTi356J5W-Pb66oaJ7xUhVZr-pTlJTwxQ/edit?gid=0#gid=0
 
 # 시트명 변수 정의
-SHEET_NAME = '시트2(홈리빙30이상/루키)'
+# SHEET_NAME = '시트2(홈리빙30이상/루키)'
+SHEET_NAME = '시트3(푸드30이상/루키)'
+
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -67,7 +69,8 @@ def connect_mongodb():
     uri = "mongodb+srv://coq3820:JmbIOcaEOrvkpQo1@cluster0.qj1ty.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
     client = MongoClient(uri, server_api=ServerApi('1'),
                         connectTimeoutMS=60000,  # 연결 타임아웃을 60초로 증가
-                        socketTimeoutMS=60000)   # 소켓 타임아웃도 60초로 증가
+                        socketTimeoutMS=60000,   # 소켓 타임아웃도 60초로 증가
+                        tlsAllowInvalidCertificates=True)  # SSL 인증서 검증 비활성화
 
     try:
         # 연결 확인
@@ -85,18 +88,25 @@ def connect_mongodb():
 
         # TTL 인덱스 생성 (자동 삭제 설정)
         try:
-            # 기존 인덱스 삭제
-            collection_feed.drop_index("crawl_date_1")
-            print("기존 TTL 인덱스가 삭제되었습니다.")
+            # 모든 TTL 인덱스 확인
+            existing_indexes = collection_feed.list_indexes()
+            for index in existing_indexes:
+                if "expireAfterSeconds" in index:
+                    print(f"기존 TTL 인덱스 발견: {index['name']}, 만료 시간: {index['expireAfterSeconds']}초")
+                    # TTL 인덱스 삭제
+                    collection_feed.drop_index(index['name'])
+                    print(f"기존 TTL 인덱스({index['name']})가 삭제되었습니다.")
+            
+            # 새로운 TTL 인덱스 생성 (180일)
+            collection_feed.create_index(
+                "crawl_date", 
+                expireAfterSeconds=180 * 24 * 60 * 60,  # 180일
+                name="crawl_date_ttl_180d"  # 고유한 이름 부여
+            )
+            print("새로운 TTL Index(180일)가 생성되었습니다.")
+            
         except Exception as e:
-            print(f"기존 인덱스 삭제 중 오류 발생 (무시됨): {e}")
-        
-        # 새로운 TTL 인덱스 생성 (180일)
-        collection_feed.create_index(
-            "crawl_date", 
-            expireAfterSeconds=180 * 24 * 60 * 60  # 180일
-        )
-        print("새로운 TTL Index가 생성되었습니다.")
+            print(f"TTL 인덱스 설정 중 오류 발생: {e}")
 
         return collection_feed, collection_influencer
     except Exception as e:

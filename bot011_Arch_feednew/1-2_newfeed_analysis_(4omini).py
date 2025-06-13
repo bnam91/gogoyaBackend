@@ -175,7 +175,9 @@ import logging
 
 def get_mongodb_connection():
     uri = "mongodb+srv://coq3820:JmbIOcaEOrvkpQo1@cluster0.qj1ty.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
-    client = MongoClient(uri, server_api=ServerApi('1'))
+    client = MongoClient(uri, 
+                        server_api=ServerApi('1'),
+                        tlsAllowInvalidCertificates=True)
     
     try:
         # 연결 테스트
