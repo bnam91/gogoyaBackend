@@ -1,9 +1,10 @@
 #https://docs.google.com/spreadsheets/d/1RdnS9IsC1TbTi356J5W-Pb66oaJ7xUhVZr-pTlJTwxQ/edit?gid=0#gid=0
 
-# 시트명 변수 정의
-# SHEET_NAME = '시트2(홈리빙30이상/루키)'
-SHEET_NAME = '시트3(푸드30이상/루키)'
+#cd C:\Users\신현빈\Desktop\github\gogoyaBackend\bot022_PastFeed && python bot01_pastfeedAuto.py
 
+
+# 전역 변수로 SHEET_NAME 선언
+SHEET_NAME = None
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -26,6 +27,52 @@ from urllib.parse import urlparse, urlunsplit
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from auth import get_credentials
 from module.reels_analyzer import ReelsAnalyzer
+
+def get_sheet_list(service, spreadsheet_id):
+    """스프레드시트의 모든 시트 목록을 가져오는 함수"""
+    try:
+        spreadsheet = service.spreadsheets().get(spreadsheetId=spreadsheet_id).execute()
+        sheets = spreadsheet.get('sheets', [])
+        return [(i+1, sheet['properties']['title']) for i, sheet in enumerate(sheets)]
+    except Exception as e:
+        print(f"시트 목록을 가져오는 중 오류 발생: {str(e)}")
+        return []
+
+def select_sheet():
+    """사용자가 시트를 선택하는 함수"""
+    global SHEET_NAME  # 전역 변수 사용 선언
+    
+    # Google Sheets API 인증 및 서비스 객체 생성
+    creds = get_credentials()
+    service = build('sheets', 'v4', credentials=creds)
+    
+    # 스프레드시트 ID
+    SPREADSHEET_ID = '1RdnS9IsC1TbTi356J5W-Pb66oaJ7xUhVZr-pTlJTwxQ'
+    
+    # 시트 목록 가져오기
+    sheets = get_sheet_list(service, SPREADSHEET_ID)
+    
+    if not sheets:
+        print("시트 목록을 가져올 수 없습니다.")
+        return None
+    
+    # 시트 목록 출력
+    print("\n=== 사용 가능한 시트 목록 ===")
+    for num, title in sheets:
+        print(f"{num}. {title}")
+    
+    # 사용자 입력 받기
+    while True:
+        try:
+            choice = int(input("\n사용할 시트 번호를 입력하세요: "))
+            if 1 <= choice <= len(sheets):
+                SHEET_NAME = sheets[choice-1][1]  # 전역 변수 업데이트
+                print(f"\n선택된 시트: {SHEET_NAME}")
+                return SHEET_NAME
+            else:
+                print(f"1부터 {len(sheets)} 사이의 숫자를 입력해주세요.")
+        except ValueError:
+            print("올바른 숫자를 입력해주세요.")
 
 def clean_url(url):
     """URL에서 쿼리 파라미터를 제거하는 함수"""
@@ -97,13 +144,13 @@ def connect_mongodb():
                     collection_feed.drop_index(index['name'])
                     print(f"기존 TTL 인덱스({index['name']})가 삭제되었습니다.")
             
-            # 새로운 TTL 인덱스 생성 (180일)
+            # 새로운 TTL 인덱스 생성 (450일)
             collection_feed.create_index(
                 "crawl_date", 
-                expireAfterSeconds=180 * 24 * 60 * 60,  # 180일
-                name="crawl_date_ttl_180d"  # 고유한 이름 부여
+                expireAfterSeconds=450 * 24 * 60 * 60,  # 450일
+                name="crawl_date_ttl_450d"  # 고유한 이름 부여
             )
-            print("새로운 TTL Index(180일)가 생성되었습니다.")
+            print("새로운 TTL Index(450일)가 생성되었습니다.")
             
         except Exception as e:
             print(f"TTL 인덱스 설정 중 오류 발생: {e}")
@@ -695,85 +742,105 @@ def load_sheet_data(service, spreadsheet_id):
 
 def batch_update_sheet(service, spreadsheet_id, updates):
     """여러 셀을 한 번에 업데이트"""
-    try:
-        body = {
-            'valueInputOption': 'RAW',
-            'data': updates
-        }
-        result = service.spreadsheets().values().batchUpdate(
-            spreadsheetId=spreadsheet_id,
-            body=body
-        ).execute()
-        return result
-    except Exception as e:
-        print(f"\n❌ 일괄 업데이트 중 오류 발생: {str(e)}")
-        return None
+    max_retries = 3  # 최대 재시도 횟수
+    retry_delay = 2  # 재시도 간 대기 시간(초)
+    
+    for attempt in range(max_retries):
+        try:
+            body = {
+                'valueInputOption': 'RAW',
+                'data': updates
+            }
+            result = service.spreadsheets().values().batchUpdate(
+                spreadsheetId=spreadsheet_id,
+                body=body
+            ).execute()
+            return result
+        except Exception as e:
+            if attempt < max_retries - 1:  # 마지막 시도가 아니면 재시도
+                print(f"\n⚠️ 일괄 업데이트 실패 (시도 {attempt + 1}/{max_retries}). {retry_delay}초 후 재시도합니다...")
+                print(f"오류 내용: {str(e)}")
+                time.sleep(retry_delay)
+                retry_delay *= 2  # 지수 백오프: 대기 시간을 2배로 증가
+            else:  # 마지막 시도에서도 실패
+                print(f"\n❌ 일괄 업데이트 중 오류 발생 (최대 재시도 횟수 초과): {str(e)}")
+                return None
 
 def process_next_username(service, spreadsheet_id, usernames):
     """다음 크롤링할 계정을 찾고 상태를 업데이트"""
-    try:
-        # 스프레드시트 데이터를 한 번에 로드
-        result = service.spreadsheets().values().get(
-            spreadsheetId=spreadsheet_id,
-            range=f'{SHEET_NAME}!A:G'  # 시트명 변수 사용
-        ).execute()
-        sheet_data = result.get('values', [])
-        
-        if not sheet_data:
-            print("스프레드시트에서 데이터를 찾을 수 없습니다.")
-            return None, None 
-        
-        # username과 행 번호 매핑
-        username_to_row = {}
+    max_retries = 3  # 최대 재시도 횟수
+    retry_delay = 2  # 재시도 간 대기 시간(초)
+    
+    for attempt in range(max_retries):
+        try:
+            # 스프레드시트 데이터를 한 번에 로드
+            result = service.spreadsheets().values().get(
+                spreadsheetId=spreadsheet_id,
+                range=f'{SHEET_NAME}!A:G'  # 시트명 변수 사용
+            ).execute()
+            sheet_data = result.get('values', [])
+            
+            if not sheet_data:
+                print("스프레드시트에서 데이터를 찾을 수 없습니다.")
+                return None, None 
+            
+            # username과 행 번호 매핑
+            username_to_row = {}
 
-        # 헤더 제외하고 데이터 처리
-        for i, row in enumerate(sheet_data[1:], start=2):  # 2부터 시작 (1-based, 헤더 제외)
-            if not row:  # 빈 행 건너뛰기
-                continue
-                
-            username = row[0]
-            if username not in usernames:  # 크롤링 대상 목록에 없는 경우 건너뛰기
-                continue
-                
-            username_to_row[username] = i
-            
-            # Date 칼럼 (E열) 확인
-            date_value = row[4] if len(row) > 4 else ""
-            
-            # '제외' 상태인 경우 건너뛰기
-            if date_value.strip() == '제외':
-                print(f"\n⏭️ {username} 계정은 제외 목록에 있어 건너뜁니다.")
-                continue
-            
-            if not date_value.strip():  # Date 칼럼이 비어있는 경우
-                # 이 계정을 크롤링 대상으로 선택하고 상태 업데이트
-                range_name = f'{SHEET_NAME}!E{i}'  # 시트명 변수 사용
-                body = {
-                    'values': [['crawling']]
-                }
-                try:
-                    service.spreadsheets().values().update(
-                        spreadsheetId=spreadsheet_id,
-                        range=range_name,
-                        valueInputOption='RAW',
-                        body=body
-                    ).execute()
-                    print(f"\n🔄 {username} 계정 크롤링을 시작합니다.")
-                    return username_to_row, username
-                except Exception as e:
-                    print(f"\n❌ {username} 상태 업데이트 중 오류 발생: {str(e)}")
+            # 헤더 제외하고 데이터 처리
+            for i, row in enumerate(sheet_data[1:], start=2):  # 2부터 시작 (1-based, 헤더 제외)
+                if not row:  # 빈 행 건너뛰기
                     continue
-            elif date_value.lower() == 'crawling':
-                continue  # 크롤링 중인 계정은 메시지 없이 건너뛰기
-            else:
-                continue  # 이미 크롤링된 계정은 메시지 없이 건너뛰기
+                    
+                username = row[0]
+                if username not in usernames:  # 크롤링 대상 목록에 없는 경우 건너뛰기
+                    continue
+                    
+                username_to_row[username] = i
+                
+                # Date 칼럼 (E열) 확인
+                date_value = row[4] if len(row) > 4 else ""
+                
+                # '제외' 상태인 경우 건너뛰기
+                if date_value.strip() == '제외':
+                    print(f"\n⏭️ {username} 계정은 제외 목록에 있어 건너뜁니다.")
+                    continue
+                
+                if not date_value.strip():  # Date 칼럼이 비어있는 경우
+                    # 이 계정을 크롤링 대상으로 선택하고 상태 업데이트
+                    range_name = f'{SHEET_NAME}!E{i}'  # 시트명 변수 사용
+                    body = {
+                        'values': [['crawling']]
+                    }
+                    try:
+                        service.spreadsheets().values().update(
+                            spreadsheetId=spreadsheet_id,
+                            range=range_name,
+                            valueInputOption='RAW',
+                            body=body
+                        ).execute()
+                        print(f"\n🔄 {username} 계정 크롤링을 시작합니다.")
+                        return username_to_row, username
+                    except Exception as e:
+                        print(f"\n❌ {username} 상태 업데이트 중 오류 발생: {str(e)}")
+                        continue
+                elif date_value.lower() == 'crawling':
+                    continue  # 크롤링 중인 계정은 메시지 없이 건너뛰기
+                else:
+                    continue  # 이미 크롤링된 계정은 메시지 없이 건너뛰기
 
-        print("\n더 이상 크롤링할 계정이 없습니다.")
-        return username_to_row, None
+            print("\n더 이상 크롤링할 계정이 없습니다.")
+            return username_to_row, None
 
-    except Exception as e:
-        print(f"\n❌ 스프레드시트 처리 중 오류 발생: {str(e)}")
-        return None, None
+        except Exception as e:
+            if attempt < max_retries - 1:  # 마지막 시도가 아니면 재시도
+                print(f"\n⚠️ 스프레드시트 처리 실패 (시도 {attempt + 1}/{max_retries}). {retry_delay}초 후 재시도합니다...")
+                print(f"오류 내용: {str(e)}")
+                time.sleep(retry_delay)
+                retry_delay *= 2  # 지수 백오프: 대기 시간을 2배로 증가
+            else:  # 마지막 시도에서도 실패
+                print(f"\n❌ 스프레드시트 처리 중 오류 발생 (최대 재시도 횟수 초과): {str(e)}")
+                return None, None
 
 def update_crawl_result(service, spreadsheet_id, username, username_to_row, post_count, error_log=None):
     """크롤링 결과 업데이트"""
@@ -803,6 +870,14 @@ def update_crawl_result(service, spreadsheet_id, username, username_to_row, post
 
 # 메인 실행 코드
 def main():
+    global SHEET_NAME  # 전역 변수 사용 선언
+    
+    # 시트 선택
+    selected_sheet = select_sheet()
+    if not selected_sheet:
+        print("시트를 선택할 수 없어 프로그램을 종료합니다.")
+        return
+
     # Google Sheets API 설정
     SPREADSHEET_ID = '1RdnS9IsC1TbTi356J5W-Pb66oaJ7xUhVZr-pTlJTwxQ'
     RANGE_NAME = f'{SHEET_NAME}!A:A'  # 시트명 변수 사용

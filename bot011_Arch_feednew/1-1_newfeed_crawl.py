@@ -215,10 +215,10 @@ try:
     except Exception as e:
         print(f"기존 인덱스 삭제 중 오류 발생 (무시됨): {e}")
     
-    # 새로운 TTL 인덱스 생성 (180일)
+    # 새로운 TTL 인덱스 생성 (450일 = 15개월)
     collection.create_index(
         "crawl_date", 
-        expireAfterSeconds=180 * 24 * 60 * 60  # 180일
+        expireAfterSeconds=450 * 24 * 60 * 60  # 450일
     )
     print("새로운 TTL Index가 생성되었습니다.")
 
