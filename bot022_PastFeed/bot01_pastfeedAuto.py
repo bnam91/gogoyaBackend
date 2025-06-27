@@ -1,7 +1,7 @@
 #https://docs.google.com/spreadsheets/d/1RdnS9IsC1TbTi356J5W-Pb66oaJ7xUhVZr-pTlJTwxQ/edit?gid=0#gid=0
 
 #cd C:\Users\신현빈\Desktop\github\gogoyaBackend\bot022_PastFeed && python bot01_pastfeedAuto.py
-
+#Remove-Item -Path "$env:APPDATA\GoogleAPI\token.json" -Force -ErrorAction SilentlyContinue
 
 # 전역 변수로 SHEET_NAME 선언
 SHEET_NAME = None
