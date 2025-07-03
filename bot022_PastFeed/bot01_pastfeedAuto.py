@@ -1,7 +1,7 @@
 #https://docs.google.com/spreadsheets/d/1RdnS9IsC1TbTi356J5W-Pb66oaJ7xUhVZr-pTlJTwxQ/edit?gid=0#gid=0
 
 #cd C:\Users\신현빈\Desktop\github\gogoyaBackend\bot022_PastFeed && python bot01_pastfeedAuto.py
-
+#Remove-Item -Path "$env:APPDATA\GoogleAPI\token.json" -Force -ErrorAction SilentlyContinue
 
 # 전역 변수로 SHEET_NAME 선언
 SHEET_NAME = None
@@ -57,6 +57,7 @@ def select_sheet():
         return None
     
     # 시트 목록 출력
+    print("\nhttps://docs.google.com/spreadsheets/d/1RdnS9IsC1TbTi356J5W-Pb66oaJ7xUhVZr-pTlJTwxQ/edit?gid=0#gid=0")
     print("\n=== 사용 가능한 시트 목록 ===")
     for num, title in sheets:
         print(f"{num}. {title}")
@@ -872,6 +873,45 @@ def update_crawl_result(service, spreadsheet_id, username, username_to_row, post
             if reels_views:
                 print(f"릴스 평균 조회수 {int(reels_views):,}회가 시트에 기록되었습니다.")
 
+def select_profile():
+    """사용자가 Chrome 프로필을 선택하는 함수"""
+    # user_data 디렉토리 경로 설정
+    user_data_base = os.path.join(os.path.dirname(os.path.dirname(__file__)), "user_data")
+    
+    if not os.path.exists(user_data_base):
+        print(f"❌ user_data 디렉토리를 찾을 수 없습니다: {user_data_base}")
+        return None
+    
+    # user_data 디렉토리 내의 모든 프로필 폴더 가져오기
+    try:
+        profiles = [d for d in os.listdir(user_data_base) 
+                   if os.path.isdir(os.path.join(user_data_base, d)) and not d.startswith('.')]
+    except Exception as e:
+        print(f"❌ user_data 디렉토리 읽기 중 오류 발생: {str(e)}")
+        return None
+    
+    if not profiles:
+        print("❌ user_data 디렉토리에 프로필이 없습니다.")
+        return None
+    
+    # 프로필 목록 출력
+    print("\n=== 사용 가능한 Chrome 프로필 목록 ===")
+    for i, profile in enumerate(profiles, 1):
+        print(f"{i}. {profile}")
+    
+    # 사용자 입력 받기
+    while True:
+        try:
+            choice = int(input("\n사용할 프로필 번호를 입력하세요: "))
+            if 1 <= choice <= len(profiles):
+                selected_profile = profiles[choice-1]
+                print(f"\n선택된 프로필: {selected_profile}")
+                return selected_profile
+            else:
+                print(f"1부터 {len(profiles)} 사이의 숫자를 입력해주세요.")
+        except ValueError:
+            print("올바른 숫자를 입력해주세요.")
+
 # 메인 실행 코드
 def main():
     global SHEET_NAME  # 전역 변수 사용 선언
@@ -912,10 +952,11 @@ def main():
         except ValueError:
             print("올바른 숫자를 입력해주세요.")
 
-    # 로그인 정보 파일 경로 설정 (상대 경로 사용)
-    login_file_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "0_insta_login.txt")
-    with open(login_file_path, 'r', encoding='utf-8') as f:
-        profile_name = f.read().strip()
+    # 프로필 선택
+    profile_name = select_profile()
+    if not profile_name:
+        print("프로필을 선택할 수 없어 프로그램을 종료합니다.")
+        return
 
     # 사용자 데이터 디렉토리 설정 (상대 경로 사용)
     user_data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "user_data", profile_name)
