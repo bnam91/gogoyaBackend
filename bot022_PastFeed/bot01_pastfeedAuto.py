@@ -842,7 +842,7 @@ def process_next_username(service, spreadsheet_id, usernames):
                 print(f"\n❌ 스프레드시트 처리 중 오류 발생 (최대 재시도 횟수 초과): {str(e)}")
                 return None, None
 
-def update_crawl_result(service, spreadsheet_id, username, username_to_row, post_count, error_log=None):
+def update_crawl_result(service, spreadsheet_id, username, username_to_row, post_count, reels_views=None, error_log=None):
     """크롤링 결과 업데이트"""
     if username not in username_to_row:
         print(f"\n❌ {username}을 행 매핑에서 찾을 수 없습니다.")
@@ -852,12 +852,14 @@ def update_crawl_result(service, spreadsheet_id, username, username_to_row, post
     kst = timezone(timedelta(hours=9))
     current_date = datetime.now(kst).strftime('%Y-%m-%d')
 
+    # D열(릴스 조회수)부터 G열까지 업데이트
     update = {
-        'range': f'{SHEET_NAME}!E{row_number}:G{row_number}',  # 시트명 변수 사용
+        'range': f'{SHEET_NAME}!D{row_number}:G{row_number}',  # D열 포함하도록 변경
         'values': [[
-            f"{current_date} (Error)" if error_log else current_date,
-            post_count,
-            error_log or ''
+            f"{int(reels_views):,}" if reels_views else "",  # D열: 릴스 조회수
+            f"{current_date} (Error)" if error_log else current_date,  # E열: 날짜
+            post_count,  # F열: 게시물 수
+            error_log or ''  # G열: 에러 로그
         ]]
     }
 
@@ -867,6 +869,8 @@ def update_crawl_result(service, spreadsheet_id, username, username_to_row, post
             print(f"\n❌ {username}의 크롤링 중 에러 발생. 날짜와 에러 로그가 기록되었습니다.")
         else:
             print(f"\n✅ {username}의 크롤링이 완료되었습니다. ({post_count}개 게시물)")
+            if reels_views:
+                print(f"릴스 평균 조회수 {int(reels_views):,}회가 시트에 기록되었습니다.")
 
 # 메인 실행 코드
 def main():
@@ -984,8 +988,15 @@ def main():
                 # 릴스 조회수 업데이트
                 update_reels_views(collection_influencer, next_username, reels_result['average_views'])
                 
-                # 크롤링 결과 업데이트
-                update_crawl_result(service, SPREADSHEET_ID, next_username, username_to_row, post_count)
+                # 크롤링 결과 업데이트 (릴스 조회수 포함)
+                update_crawl_result(
+                    service, 
+                    SPREADSHEET_ID, 
+                    next_username, 
+                    username_to_row, 
+                    post_count,
+                    reels_views=reels_result['average_views']
+                )
                 
                 # 브라우저 종료
                 print(f"\n{next_username} 계정 크롤링 완료. 브라우저를 종료합니다.")
@@ -996,7 +1007,15 @@ def main():
 
             except Exception as e:
                 error_message = f"{datetime.now(timezone(timedelta(hours=9))).strftime('%Y-%m-%d %H:%M:%S')} - {str(e)}"
-                update_crawl_result(service, SPREADSHEET_ID, next_username, username_to_row, 0, error_message)
+                update_crawl_result(
+                    service, 
+                    SPREADSHEET_ID, 
+                    next_username, 
+                    username_to_row, 
+                    0,
+                    reels_views=None,  # 에러 시에는 릴스 조회수 없음
+                    error_log=error_message
+                )
                 if 'driver' in locals():
                     driver.quit()
                 continue
